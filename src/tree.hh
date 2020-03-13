@@ -108,7 +108,7 @@ public:
 		void skip_children();
 		void skip_children(bool skip);
 		/// Number of children of the node pointed to by the iterator.
-		unsigned int number_of_children() const;
+		size_t number_of_children() const;
 
 		sibling_iterator begin() const;
 		sibling_iterator end() const;
@@ -132,8 +132,8 @@ public:
 		pre_order_iterator& operator--();
 		pre_order_iterator operator++(int);
 		pre_order_iterator operator--(int);
-		pre_order_iterator& operator+=(unsigned int);
-		pre_order_iterator& operator-=(unsigned int);
+		pre_order_iterator& operator+=(size_t);
+		pre_order_iterator& operator-=(size_t);
 
 		pre_order_iterator& next_skip_children();
 	};
@@ -152,8 +152,8 @@ public:
 		post_order_iterator& operator--();
 		post_order_iterator operator++(int);
 		post_order_iterator operator--(int);
-		post_order_iterator& operator+=(unsigned int);
-		post_order_iterator& operator-=(unsigned int);
+		post_order_iterator& operator+=(size_t);
+		post_order_iterator& operator-=(size_t);
 
 		/// Set iterator to the first child as deep as possible down the tree.
 		void descend_all();
@@ -170,7 +170,7 @@ public:
 		bool operator!=(const breadth_first_queued_iterator&) const;
 		breadth_first_queued_iterator& operator++();
 		breadth_first_queued_iterator operator++(int);
-		breadth_first_queued_iterator& operator+=(unsigned int);
+		breadth_first_queued_iterator& operator+=(size_t);
 
 	private:
 		std::queue<tree_node*> traversal_queue;
@@ -195,8 +195,8 @@ public:
 		fixed_depth_iterator& operator--();
 		fixed_depth_iterator operator++(int);
 		fixed_depth_iterator operator--(int);
-		fixed_depth_iterator& operator+=(unsigned int);
-		fixed_depth_iterator& operator-=(unsigned int);
+		fixed_depth_iterator& operator+=(size_t);
+		fixed_depth_iterator& operator-=(size_t);
 
 		tree_node* top_node;
 	};
@@ -215,8 +215,8 @@ public:
 		sibling_iterator& operator--();
 		sibling_iterator operator++(int);
 		sibling_iterator operator--(int);
-		sibling_iterator& operator+=(unsigned int);
-		sibling_iterator& operator-=(unsigned int);
+		sibling_iterator& operator+=(size_t);
+		sibling_iterator& operator-=(size_t);
 
 		tree_node* range_first() const;
 		tree_node* range_last() const;
@@ -239,8 +239,8 @@ public:
 		leaf_iterator& operator--();
 		leaf_iterator operator++(int);
 		leaf_iterator operator--(int);
-		leaf_iterator& operator+=(unsigned int);
-		leaf_iterator& operator-=(unsigned int);
+		leaf_iterator& operator+=(size_t);
+		leaf_iterator& operator-=(size_t);
 	private:
 		tree_node* top_node;
 	};
@@ -256,9 +256,9 @@ public:
 	/// Return fixed-depth iterator to the first node at a given depth from the given iterator.
 	/// If 'walk_back=true', a depth=0 iterator will be taken from the beginning of the sibling
 	/// range, not the current node.
-	fixed_depth_iterator begin_fixed(const iterator_base&, unsigned int, bool walk_back = true) const;
+	fixed_depth_iterator begin_fixed(const iterator_base&, size_t, bool walk_back = true) const;
 	/// Return fixed-depth end iterator.
-	fixed_depth_iterator end_fixed(const iterator_base&, unsigned int) const;
+	fixed_depth_iterator end_fixed(const iterator_base&, size_t) const;
 	/// Return breadth-first iterator to the first node at a given depth.
 	breadth_first_queued_iterator begin_breadth_first() const;
 	/// Return breadth-first end iterator.
@@ -276,7 +276,7 @@ public:
 	/// Return leaf end iterator for the subtree at the given node.
 	leaf_iterator end_leaf(const iterator_base& top) const;
 
-	typedef std::vector<int> path_t;
+	typedef std::vector<size_t> path_t;
 	/// Return a path (to be taken from the 'top' node) corresponding to a node in the tree.
 	/// The first integer in path_t is the number of steps you need to go 'right' in the sibling
 	/// chain (so 0 if we go straight to the children).
@@ -406,16 +406,16 @@ public:
 	/// Check if tree is empty.
 	bool empty() const;
 	/// Compute the depth to the root or to a fixed other iterator.
-	static int depth(const iterator_base&);
-	static int depth(const iterator_base&, const iterator_base&);
+	static size_t depth(const iterator_base&);
+	static size_t depth(const iterator_base&, const iterator_base&);
 	/// Determine the maximal depth of the tree. An empty tree has max_depth=-1.
-	int max_depth() const;
+	size_t max_depth() const;
 	/// Determine the maximal depth of the tree with top node at the given position.
-	int max_depth(const iterator_base&) const;
+	size_t max_depth(const iterator_base&) const;
 	/// Count the number of children of node at position.
-	static unsigned int number_of_children(const iterator_base&);
+	static size_t number_of_children(const iterator_base&);
 	/// Count the number of siblings (left and right) of node at iterator. Total nodes at this level is +1.
-	unsigned int number_of_siblings(const iterator_base&) const;
+	size_t number_of_siblings(const iterator_base&) const;
 	/// Determine whether node at position is in the subtrees with indicated top node.
 	bool is_in_subtree(const iterator_base& position, const iterator_base& top) const;
 	/// Determine whether node at position is in the subtrees with root in the range.
@@ -429,11 +429,11 @@ public:
 	iterator lowest_common_ancestor(const iterator_base&, const iterator_base&) const;
 
 	/// Determine the index of a node in the range of siblings to which it belongs.
-	unsigned int index(sibling_iterator it) const;
+	size_t index(sibling_iterator it) const;
 	/// Inverse of 'index': return the n-th child of the node at position.
-	static sibling_iterator child(const iterator_base& position, unsigned int);
+	static sibling_iterator child(const iterator_base& position, size_t);
 	/// Return iterator to the sibling indicated by index
-	sibling_iterator sibling(const iterator_base& position, unsigned int) const;
+	sibling_iterator sibling(const iterator_base& position, size_t) const;
 
 	/// For debugging only: verify internal consistency by inspecting all pointers in the tree
 	/// (which will also trigger a valgrind error in case something got corrupted).
@@ -762,12 +762,12 @@ typename tree<T, tree_node_allocator>::post_order_iterator tree<T, tree_node_all
 }
 
 template<class T, class tree_node_allocator>
-typename tree<T, tree_node_allocator>::fixed_depth_iterator tree<T, tree_node_allocator>::begin_fixed(const iterator_base& pos, unsigned int dp, bool walk_back) const {
+typename tree<T, tree_node_allocator>::fixed_depth_iterator tree<T, tree_node_allocator>::begin_fixed(const iterator_base& pos, size_t dp, bool walk_back) const {
 	typename tree<T, tree_node_allocator>::fixed_depth_iterator ret;
 	ret.top_node = pos.node;
 
 	tree_node* tmp = pos.node;
-	unsigned int curdepth = 0;
+	size_t curdepth = 0;
 
 	while (curdepth < dp) { // go down one level
 		while (tmp->first_child == 0) {
@@ -807,10 +807,10 @@ typename tree<T, tree_node_allocator>::fixed_depth_iterator tree<T, tree_node_al
 }
 
 template<class T, class tree_node_allocator>
-typename tree<T, tree_node_allocator>::fixed_depth_iterator tree<T, tree_node_allocator>::end_fixed(const iterator_base& pos, unsigned int dp) const {
+typename tree<T, tree_node_allocator>::fixed_depth_iterator tree<T, tree_node_allocator>::end_fixed(const iterator_base& pos, size_t dp) const {
 	assert(1 == 0); // FIXME: not correct yet: use is_valid() as a temporary workaround
 	tree_node* tmp = pos.node;
-	unsigned int curdepth = 1;
+	size_t curdepth = 1;
 
 	while (curdepth < dp) { // go down one level
 		while (tmp->first_child == 0) {
@@ -874,7 +874,7 @@ typename tree<T, tree_node_allocator>::path_t tree<T, tree_node_allocator>::path
 			walk = walk->parent;
 		}
 
-		int num = 0;
+		size_t num = 0;
 
 		while (walk != top.node && walk->prev_sibling != 0 && walk->prev_sibling != head) {
 			++num;
@@ -902,7 +902,7 @@ typename tree<T, tree_node_allocator>::iterator tree<T, tree_node_allocator>::it
 			throw std::range_error("tree::iterator_from_path: no more nodes at step " + std::to_string(step));
 		}
 
-		for (int i = 0; i < path[step]; ++i) {
+		for (size_t i = 0; i < path[step]; ++i) {
 			walk = walk->next_sibling;
 
 			if (walk == 0) {
@@ -972,7 +972,7 @@ iter tree<T, tree_node_allocator>::next_at_same_depth(iter position) const {
 //	if (position.node->next_sibling) {
 //		ret.node = position.node->next_sibling;
 //	} else {
-//		int relative_depth = 0;
+//		size_t relative_depth = 0;
 //
 //	upper:
 //		do {
@@ -2248,10 +2248,10 @@ bool tree<T, tree_node_allocator>::empty() const {
 }
 
 template<class T, class tree_node_allocator>
-int tree<T, tree_node_allocator>::depth(const iterator_base& it) {
+size_t tree<T, tree_node_allocator>::depth(const iterator_base& it) {
 	tree_node* pos = it.node;
 	assert(pos != 0);
-	int ret = 0;
+	size_t ret = 0;
 
 	while (pos->parent != 0) {
 		pos = pos->parent;
@@ -2262,10 +2262,10 @@ int tree<T, tree_node_allocator>::depth(const iterator_base& it) {
 }
 
 template<class T, class tree_node_allocator>
-int tree<T, tree_node_allocator>::depth(const iterator_base& it, const iterator_base& root) {
+size_t tree<T, tree_node_allocator>::depth(const iterator_base& it, const iterator_base& root) {
 	tree_node* pos = it.node;
 	assert(pos != 0);
-	int ret = 0;
+	size_t ret = 0;
 
 	while (pos->parent != 0 && pos != root.node) {
 		pos = pos->parent;
@@ -2276,8 +2276,8 @@ int tree<T, tree_node_allocator>::depth(const iterator_base& it, const iterator_
 }
 
 template<class T, class tree_node_allocator>
-int tree<T, tree_node_allocator>::max_depth() const {
-	int maxd = -1;
+size_t tree<T, tree_node_allocator>::max_depth() const {
+	size_t maxd = -1;
 
 	for (tree_node* it = head->next_sibling; it != feet; it = it->next_sibling) {
 		maxd = std::max(maxd, max_depth(it));
@@ -2287,14 +2287,14 @@ int tree<T, tree_node_allocator>::max_depth() const {
 }
 
 template<class T, class tree_node_allocator>
-int tree<T, tree_node_allocator>::max_depth(const iterator_base& pos) const {
+size_t tree<T, tree_node_allocator>::max_depth(const iterator_base& pos) const {
 	tree_node* tmp = pos.node;
 
 	if (tmp == 0 || tmp == head || tmp == feet) {
 		return -1;
 	}
 
-	int curdepth = 0, maxdepth = 0;
+	size_t curdepth = 0, maxdepth = 0;
 
 	while (true) { // try to walk the bottom of the tree
 		while (tmp->first_child == 0) {
@@ -2329,14 +2329,14 @@ int tree<T, tree_node_allocator>::max_depth(const iterator_base& pos) const {
 }
 
 template<class T, class tree_node_allocator>
-unsigned int tree<T, tree_node_allocator>::number_of_children(const iterator_base& it) {
+size_t tree<T, tree_node_allocator>::number_of_children(const iterator_base& it) {
 	tree_node* pos = it.node->first_child;
 
 	if (pos == 0) {
 		return 0;
 	}
 
-	unsigned int ret = 1;
+	size_t ret = 1;
 
 //	while(pos!=it.node->last_child) {
 //		++ret;
@@ -2351,9 +2351,9 @@ unsigned int tree<T, tree_node_allocator>::number_of_children(const iterator_bas
 }
 
 template<class T, class tree_node_allocator>
-unsigned int tree<T, tree_node_allocator>::number_of_siblings(const iterator_base& it) const {
+size_t tree<T, tree_node_allocator>::number_of_siblings(const iterator_base& it) const {
 	tree_node* pos = it.node;
-	unsigned int ret = 0;
+	size_t ret = 0;
 
 	// count forward
 	while (pos->next_sibling && pos->next_sibling != head && pos->next_sibling != feet) {
@@ -2526,8 +2526,8 @@ typename tree<T, tree_node_allocator>::iterator tree<T, tree_node_allocator>::lo
 }
 
 template<class T, class tree_node_allocator>
-unsigned int tree<T, tree_node_allocator>::index(sibling_iterator it) const {
-	unsigned int ind = 0;
+size_t tree<T, tree_node_allocator>::index(sibling_iterator it) const {
+	size_t ind = 0;
 
 	if (it.node->parent == 0) {
 		while (it.node->prev_sibling != head) {
@@ -2545,7 +2545,7 @@ unsigned int tree<T, tree_node_allocator>::index(sibling_iterator it) const {
 }
 
 template<class T, class tree_node_allocator>
-typename tree<T, tree_node_allocator>::sibling_iterator tree<T, tree_node_allocator>::sibling(const iterator_base& it, unsigned int num) const {
+typename tree<T, tree_node_allocator>::sibling_iterator tree<T, tree_node_allocator>::sibling(const iterator_base& it, size_t num) const {
 	tree_node* tmp;
 
 	if (it.node->parent == 0) {
@@ -2591,7 +2591,7 @@ void tree<T, tree_node_allocator>::debug_verify_consistency() const {
 }
 
 template<class T, class tree_node_allocator>
-typename tree<T, tree_node_allocator>::sibling_iterator tree<T, tree_node_allocator>::child(const iterator_base& it, unsigned int num) {
+typename tree<T, tree_node_allocator>::sibling_iterator tree<T, tree_node_allocator>::child(const iterator_base& it, size_t num) {
 	tree_node* tmp = it.node->first_child;
 
 	while (num--) {
@@ -2693,14 +2693,14 @@ void tree<T, tree_node_allocator>::iterator_base::skip_children(bool skip) {
 }
 
 template<class T, class tree_node_allocator>
-unsigned int tree<T, tree_node_allocator>::iterator_base::number_of_children() const {
+size_t tree<T, tree_node_allocator>::iterator_base::number_of_children() const {
 	tree_node* pos = node->first_child;
 
 	if (pos == 0) {
 		return 0;
 	}
 
-	unsigned int ret = 1;
+	size_t ret = 1;
 
 	while (pos != node->last_child) {
 		++ret;
@@ -2807,7 +2807,7 @@ typename tree<T, tree_node_allocator>::pre_order_iterator tree<T, tree_node_allo
 }
 
 template<class T, class tree_node_allocator>
-typename tree<T, tree_node_allocator>::pre_order_iterator& tree<T, tree_node_allocator>::pre_order_iterator::operator+=(unsigned int num) {
+typename tree<T, tree_node_allocator>::pre_order_iterator& tree<T, tree_node_allocator>::pre_order_iterator::operator+=(size_t num) {
 	while (num--) {
 		++(*this);
 	}
@@ -2816,7 +2816,7 @@ typename tree<T, tree_node_allocator>::pre_order_iterator& tree<T, tree_node_all
 }
 
 template<class T, class tree_node_allocator>
-typename tree<T, tree_node_allocator>::pre_order_iterator& tree<T, tree_node_allocator>::pre_order_iterator::operator-=(unsigned int num) {
+typename tree<T, tree_node_allocator>::pre_order_iterator& tree<T, tree_node_allocator>::pre_order_iterator::operator-=(size_t num) {
 	while (num--) {
 		--(*this);
 	}
@@ -2911,7 +2911,7 @@ typename tree<T, tree_node_allocator>::post_order_iterator tree<T, tree_node_all
 }
 
 template<class T, class tree_node_allocator>
-typename tree<T, tree_node_allocator>::post_order_iterator& tree<T, tree_node_allocator>::post_order_iterator::operator+=(unsigned int num) {
+typename tree<T, tree_node_allocator>::post_order_iterator& tree<T, tree_node_allocator>::post_order_iterator::operator+=(size_t num) {
 	while (num--) {
 		++(*this);
 	}
@@ -2920,7 +2920,7 @@ typename tree<T, tree_node_allocator>::post_order_iterator& tree<T, tree_node_al
 }
 
 template<class T, class tree_node_allocator>
-typename tree<T, tree_node_allocator>::post_order_iterator& tree<T, tree_node_allocator>::post_order_iterator::operator-=(unsigned int num) {
+typename tree<T, tree_node_allocator>::post_order_iterator& tree<T, tree_node_allocator>::post_order_iterator::operator-=(size_t num) {
 	while (num--) {
 		--(*this);
 	}
@@ -2998,7 +2998,7 @@ typename tree<T, tree_node_allocator>::breadth_first_queued_iterator tree<T, tre
 }
 
 template<class T, class tree_node_allocator>
-typename tree<T, tree_node_allocator>::breadth_first_queued_iterator& tree<T, tree_node_allocator>::breadth_first_queued_iterator::operator+=(unsigned int num) {
+typename tree<T, tree_node_allocator>::breadth_first_queued_iterator& tree<T, tree_node_allocator>::breadth_first_queued_iterator::operator+=(size_t num) {
 	while (num--) {
 		++(*this);
 	}
@@ -3047,7 +3047,7 @@ typename tree<T, tree_node_allocator>::fixed_depth_iterator& tree<T, tree_node_a
 	if (this->node->next_sibling) {
 		this->node = this->node->next_sibling;
 	} else {
-		int relative_depth = 0;
+		size_t relative_depth = 0;
 
 	upper:
 		do {
@@ -3100,7 +3100,7 @@ typename tree<T, tree_node_allocator>::fixed_depth_iterator& tree<T, tree_node_a
 	if (this->node->prev_sibling) {
 		this->node = this->node->prev_sibling;
 	} else {
-		int relative_depth = 0;
+		size_t relative_depth = 0;
 
 	upper:
 		do {
@@ -3184,7 +3184,7 @@ typename tree<T, tree_node_allocator>::fixed_depth_iterator tree<T, tree_node_al
 }
 
 template<class T, class tree_node_allocator>
-typename tree<T, tree_node_allocator>::fixed_depth_iterator& tree<T, tree_node_allocator>::fixed_depth_iterator::operator-=(unsigned int num) {
+typename tree<T, tree_node_allocator>::fixed_depth_iterator& tree<T, tree_node_allocator>::fixed_depth_iterator::operator-=(size_t num) {
 	while (num--) {
 		--(*this);
 	}
@@ -3193,7 +3193,7 @@ typename tree<T, tree_node_allocator>::fixed_depth_iterator& tree<T, tree_node_a
 }
 
 template<class T, class tree_node_allocator>
-typename tree<T, tree_node_allocator>::fixed_depth_iterator& tree<T, tree_node_allocator>::fixed_depth_iterator::operator+=(unsigned int num) {
+typename tree<T, tree_node_allocator>::fixed_depth_iterator& tree<T, tree_node_allocator>::fixed_depth_iterator::operator+=(size_t num) {
 	while (num--) {
 		++(*this);
 	}
@@ -3276,7 +3276,7 @@ typename tree<T, tree_node_allocator>::sibling_iterator tree<T, tree_node_alloca
 }
 
 template<class T, class tree_node_allocator>
-typename tree<T, tree_node_allocator>::sibling_iterator& tree<T, tree_node_allocator>::sibling_iterator::operator+=(unsigned int num) {
+typename tree<T, tree_node_allocator>::sibling_iterator& tree<T, tree_node_allocator>::sibling_iterator::operator+=(size_t num) {
 	while (num--) {
 		++(*this);
 	}
@@ -3285,7 +3285,7 @@ typename tree<T, tree_node_allocator>::sibling_iterator& tree<T, tree_node_alloc
 }
 
 template<class T, class tree_node_allocator>
-typename tree<T, tree_node_allocator>::sibling_iterator& tree<T, tree_node_allocator>::sibling_iterator::operator-=(unsigned int num) {
+typename tree<T, tree_node_allocator>::sibling_iterator& tree<T, tree_node_allocator>::sibling_iterator::operator-=(size_t num) {
 	while (num--) {
 		--(*this);
 	}
@@ -3405,7 +3405,7 @@ typename tree<T, tree_node_allocator>::leaf_iterator tree<T, tree_node_allocator
 }
 
 template<class T, class tree_node_allocator>
-typename tree<T, tree_node_allocator>::leaf_iterator& tree<T, tree_node_allocator>::leaf_iterator::operator+=(unsigned int num) {
+typename tree<T, tree_node_allocator>::leaf_iterator& tree<T, tree_node_allocator>::leaf_iterator::operator+=(size_t num) {
 	while (num--) {
 		++(*this);
 	}
@@ -3414,7 +3414,7 @@ typename tree<T, tree_node_allocator>::leaf_iterator& tree<T, tree_node_allocato
 }
 
 template<class T, class tree_node_allocator>
-typename tree<T, tree_node_allocator>::leaf_iterator& tree<T, tree_node_allocator>::leaf_iterator::operator-=(unsigned int num) {
+typename tree<T, tree_node_allocator>::leaf_iterator& tree<T, tree_node_allocator>::leaf_iterator::operator-=(size_t num) {
 	while (num--) {
 		--(*this);
 	}
