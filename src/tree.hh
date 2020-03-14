@@ -95,7 +95,7 @@ tree_node_<T>::tree_node_(T&& val)
 
 template<class T, class tree_node_allocator = std::allocator<tree_node_<T>>>
 class tree {
-protected:
+public:
 	typedef tree_node_<T> tree_node;
 public:
 	/// Value of the data stored at a node.
@@ -371,6 +371,9 @@ public:
 	path_t path_from_iterator(const iterator_base& iter, const iterator_base& top) const;
 	/// Return an iterator given a path from the 'top' node.
 	iterator iterator_from_path(const path_t&, const iterator_base& top) const;
+#ifdef TREE_HH_EXTRA
+	path_t path_from_iterator(const expanded_iterator& iter) const;
+#endif // TREE_HH_EXTRA
 
 	/// Return iterator to the parent of a node.
 	template<typename iter> static iter parent(iter);
