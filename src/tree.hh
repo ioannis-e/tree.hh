@@ -35,6 +35,16 @@
 #include <cstddef>
 
 
+#ifndef TREE_HH_EXTRA
+// Defining TREE_HH_EXTRA will enable the following features:
+// - enable size() return in O(1)
+// - enable expanding and collapsing nodes in the tree
+// - enable selecting nodes in the tree
+// - enable node filtering
+// - enable tree swap
+#define TREE_HH_EXTRA
+#endif // TREE_HH_EXTRA
+
 /// A node in the tree, combining links to other nodes as well as the actual data.
 template<class T>
 class tree_node_ { // size: 5*4=20 bytes (on 32 bit arch), can be reduced by 8.
@@ -47,19 +57,41 @@ public:
 	tree_node_<T>* first_child, * last_child;
 	tree_node_<T>* prev_sibling, * next_sibling;
 	T data;
+#ifdef TREE_HH_EXTRA
+	size_t count;
+	size_t count_expanded;
+	size_t count_expandable;
+	bool expanded;
+	bool visible;
+#endif // TREE_HH_EXTRA
 };
 
 template<class T>
 tree_node_<T>::tree_node_()
-	: parent(0), first_child(0), last_child(0), prev_sibling(0), next_sibling(0) { }
+	: parent(0), first_child(0), last_child(0), prev_sibling(0), next_sibling(0)
+#ifdef TREE_HH_EXTRA
+	, count(0), count_expanded(0), count_expandable(0)
+	, expanded(false), visible(false)
+#endif // TREE_HH_EXTRA
+{ }
 
 template<class T>
 tree_node_<T>::tree_node_(const T& val)
-	: parent(0), first_child(0), last_child(0), prev_sibling(0), next_sibling(0), data(val) { }
+	: parent(0), first_child(0), last_child(0), prev_sibling(0), next_sibling(0), data(val)
+#ifdef TREE_HH_EXTRA
+	, count(0), count_expanded(0), count_expandable(0)
+	, expanded(false), visible(false)
+#endif // TREE_HH_EXTRA
+{ }
 
 template<class T>
 tree_node_<T>::tree_node_(T&& val)
-	: parent(0), first_child(0), last_child(0), prev_sibling(0), next_sibling(0), data(val) { }
+	: parent(0), first_child(0), last_child(0), prev_sibling(0), next_sibling(0), data(val)
+#ifdef TREE_HH_EXTRA
+	, count(0), count_expanded(0), count_expandable(0)
+	, expanded(false), visible(false)
+#endif // TREE_HH_EXTRA
+{ }
 
 template<class T, class tree_node_allocator = std::allocator<tree_node_<T>>>
 class tree {
@@ -71,6 +103,11 @@ public:
 
 	class iterator_base;
 	class pre_order_iterator;
+#ifdef TREE_HH_EXTRA
+	class expanded_iterator;
+	class selected_iterator;
+	class expandable_iterator;
+#endif // TREE_HH_EXTRA
 	class post_order_iterator;
 	class sibling_iterator;
 	class leaf_iterator;
@@ -137,6 +174,47 @@ public:
 
 		pre_order_iterator& next_skip_children();
 	};
+
+#ifdef TREE_HH_EXTRA
+	// Depth-first iterator, first accessing the node, then its children.
+	class expanded_iterator : public iterator_base {
+	public:
+		expanded_iterator();
+		expanded_iterator(tree_node*);
+		expanded_iterator(const iterator_base&);
+		expanded_iterator(const sibling_iterator&);
+
+		bool operator==(const iterator_base&) const;
+		bool operator!=(const iterator_base&) const;
+		expanded_iterator& operator++();
+		expanded_iterator& operator--();
+		expanded_iterator operator++(int);
+		expanded_iterator operator--(int);
+		expanded_iterator& operator+=(size_t);
+		expanded_iterator& operator-=(size_t);
+
+		expanded_iterator& next_skip_children();
+	};
+
+	class expandable_iterator : public iterator_base {
+	public:
+		expandable_iterator();
+		expandable_iterator(tree_node*);
+		expandable_iterator(const iterator_base&);
+		expandable_iterator(const sibling_iterator&);
+
+		bool operator==(const expandable_iterator&) const;
+		bool operator!=(const expandable_iterator&) const;
+		expandable_iterator& operator++();
+		expandable_iterator& operator--();
+		expandable_iterator operator++(int);
+		expandable_iterator operator--(int);
+		expandable_iterator& operator+=(size_t);
+		expandable_iterator& operator-=(size_t);
+
+		expandable_iterator& next_skip_children();
+	};
+#endif // TREE_HH_EXTRA
 
 	/// Depth-first iterator, first accessing the children, then the node itself.
 	class post_order_iterator : public iterator_base {
@@ -249,6 +327,16 @@ public:
 	inline pre_order_iterator begin() const;
 	/// Return iterator to the end of the tree.
 	inline pre_order_iterator end() const;
+#ifdef TREE_HH_EXTRA
+	/// Return iterator to the beginning of the tree.
+	inline expanded_iterator begin_expanded() const;
+	/// Return iterator to the end of the tree.
+	inline expanded_iterator end_expanded() const;
+	/// Return iterator to the beginning of the tree.
+	inline expandable_iterator begin_expandable() const;
+	/// Return iterator to the end of the tree.
+	inline expandable_iterator end_expandable() const;
+#endif // TREE_HH_EXTRA
 	/// Return post-order iterator to the beginning of the tree.
 	post_order_iterator begin_post() const;
 	/// Return post-order end iterator of the tree.
@@ -381,6 +469,12 @@ public:
 	void sort(sibling_iterator from, sibling_iterator to, bool deep = false);
 	template<class StrictWeakOrdering>
 	void sort(sibling_iterator from, sibling_iterator to, StrictWeakOrdering comp, bool deep = false);
+#ifdef TREE_HH_EXTRA
+	/// Filter
+	size_t filter(bool value);
+	template<class StrictWeakFiltering>
+	size_t filter(StrictWeakFiltering comp);
+#endif // TREE_HH_EXTRA
 	/// Compare two ranges of nodes (compares nodes as well as tree structure).
 	template<typename iter>
 	bool equal(const iter& one, const iter& two, const iter& three) const;
@@ -403,6 +497,22 @@ public:
 	size_t size() const;
 	/// Count the total number of nodes below the indicated node (plus one).
 	size_t size(const iterator_base&) const;
+#ifdef TREE_HH_EXTRA
+	/// Count the total number of nodes.
+	size_t count() const;
+	/// Count the total number of nodes below the indicated node (plus one).
+	size_t count(const iterator_base&) const;
+	/// Count the total number of expanded nodes.
+	size_t count_expanded() const;
+	/// Count the total number of expanded nodes below the indicated node (plus one).
+	size_t count_expanded(const iterator_base&) const;
+	/// Count the total number of expandable nodes.
+	size_t count_expandable() const;
+	/// Count the total number of expandable nodes below the indicated node (plus one).
+	size_t count_expandable(const iterator_base&) const;
+	/// Exchange tree
+	void swap(tree<T, tree_node_allocator>& other);
+#endif // TREE_HH_EXTRA
 	/// Check if tree is empty.
 	bool empty() const;
 	/// Compute the depth to the root or to a fixed other iterator.
@@ -430,6 +540,11 @@ public:
 
 	/// Determine the index of a node in the range of siblings to which it belongs.
 	size_t index(sibling_iterator it) const;
+#ifdef TREE_HH_EXTRA
+	// Determine the index of a node in the range of siblings to which it belongs.
+	size_t index(pre_order_iterator it) const;
+	size_t index(expanded_iterator it) const;
+#endif // TREE_HH_EXTRA
 	/// Inverse of 'index': return the n-th child of the node at position.
 	static sibling_iterator child(const iterator_base& position, size_t);
 	/// Return iterator to the sibling indicated by index
@@ -447,10 +562,47 @@ public:
 		}
 	};
 	tree_node* head, * feet; // head/feet are always dummy; if an iterator points to them it is invalid
+#ifdef TREE_HH_EXTRA
+	size_t collapse();
+
+	size_t collapse(const iterator_base& it);
+
+	size_t expand();
+
+	size_t expand(const iterator_base& it);
+
+	bool is_expanded(const iterator_base& it);
+
+	class tree_selection {
+		bool operator<(const tree_selection& other) const {
+			return (begin < other.begin);
+		}
+		size_t begin;
+		size_t end;
+	};
+
+	std::set<tree_selection> selection;
+	bool multiple_selection;
+
+	void select();
+
+	void toggle(size_t index, size_t origin, uint32_t mode);
+
+	void unselect();
+
+	bool is_selected(size_t index);
+
+	void set_multiple_selection(bool multiple);
+
+	void set_expand_new(bool expand);
+#endif // TREE_HH_EXTRA
 private:
 	tree_node_allocator alloc_;
 	void head_initialise_();
 	void copy_(const tree<T, tree_node_allocator>& other);
+#ifdef TREE_HH_EXTRA
+	void erase_children_(const iterator_base&);
+#endif // TREE_HH_EXTRA
 
 	/// Comparator class for two nodes of a tree (used for sorting and searching).
 	template<class StrictWeakOrdering>
@@ -464,6 +616,21 @@ private:
 	private:
 		StrictWeakOrdering comp_;
 	};
+
+#ifdef TREE_HH_EXTRA
+	/// Comparator class for a node of a tree (used for filtering).
+	template<class StrictWeakFiltering>
+	class filter_nodes {
+	public:
+		filter_nodes(StrictWeakFiltering comp) : comp_(comp) { };
+
+		bool operator()(const tree_node* a) {
+			return comp_(a->data);
+		}
+	private:
+		StrictWeakFiltering comp_;
+	};
+#endif // TREE_HH_EXTRA
 };
 
 //template<class T, class tree_node_allocator>
@@ -512,6 +679,31 @@ template<class T, class tree_node_allocator>
 tree<T, tree_node_allocator>::tree(tree<T, tree_node_allocator>&& x) {
 	head_initialise_();
 
+#ifdef TREE_HH_EXTRA
+	head->next_sibling = x.head->next_sibling;
+	x.head->next_sibling->prev_sibling = head;
+
+	head->count = x.head->count;
+	head->count_expanded = x.head->count_expanded;
+	head->count_expandable = x.head->count_expandable;
+	head->expanded = x.head->expanded;
+	head->visible = x.head->visible;
+
+	feet->prev_sibling = x.feet->prev_sibling;
+	x.feet->prev_sibling->next_sibling = feet;
+
+	feet->count = x.feet->count;
+	feet->count_expanded = x.feet->count_expanded;
+	feet->count_expandable = x.feet->count_expandable;
+	feet->expanded = x.feet->expanded;
+	feet->visible = x.feet->visible;
+
+	selection = std::move(x.selection);
+	multiple_selection = x.multiple_selection;
+
+	x.head->next_sibling = x.feet;
+	x.feet->prev_sibling = x.head;
+#else // TREE_HH_EXTRA
 	if (x.head->next_sibling != x.feet) { // move tree if non-empty only
 		head->next_sibling = x.head->next_sibling;
 		feet->prev_sibling = x.head->prev_sibling;
@@ -520,6 +712,7 @@ tree<T, tree_node_allocator>::tree(tree<T, tree_node_allocator>&& x) {
 		x.head->next_sibling = x.feet;
 		x.feet->prev_sibling = x.head;
 	}
+#endif // TREE_HH_EXTRA
 }
 
 template<class T, class tree_node_allocator>
@@ -556,6 +749,22 @@ void tree<T, tree_node_allocator>::head_initialise_() {
 	feet->last_child = 0;
 	feet->prev_sibling = head;
 	feet->next_sibling = 0;
+
+#ifdef TREE_HH_EXTRA
+	head->count = 0;
+	head->count_expanded = 0;
+	head->count_expandable = 0;
+	head->expanded = true;
+	head->visible = true;
+
+	feet->count = 0;
+	feet->count_expanded = 0;
+	feet->count_expandable = 0;
+	feet->expanded = false;
+	feet->visible = true;
+
+	multiple_selection = false;
+#endif // TREE_HH_EXTRA
 }
 
 template<class T, class tree_node_allocator>
@@ -573,9 +782,28 @@ tree<T, tree_node_allocator>& tree<T, tree_node_allocator>::operator=(tree<T, tr
 		clear(); // clear any existing data.
 
 		head->next_sibling = x.head->next_sibling;
-		feet->prev_sibling = x.head->prev_sibling;
+		feet->prev_sibling = x.feet->prev_sibling;
 		x.head->next_sibling->prev_sibling = head;
+#ifdef TREE_HH_EXTRA
+		head->count = x.head->count;
+		head->count_expanded = x.head->count_expanded;
+		head->count_expandable = x.head->count_expandable;
+		head->expanded = x.head->expanded;
+		head->visible = x.head->visible;
+#endif // TREE_HH_EXTRA
+
 		x.feet->prev_sibling->next_sibling = feet;
+#ifdef TREE_HH_EXTRA
+		feet->count = x.feet->count;
+		feet->count_expanded = x.feet->count_expanded;
+		feet->count_expandable = x.feet->count_expandable;
+		feet->expanded = x.feet->expanded;
+		feet->visible = x.feet->visible;
+#endif // TREE_HH_EXTRA
+#ifdef TREE_HH_EXTRA
+		selection = std::move(x.selection);
+		multiple_selection = x.multiple_selection;
+#endif // TREE_HH_EXTRA
 		x.head->next_sibling = x.feet;
 		x.feet->prev_sibling = x.head;
 	}
@@ -628,6 +856,34 @@ void tree<T, tree_node_allocator>::erase_children(const iterator_base& it) {
 		return;
 	}
 
+#ifdef TREE_HH_EXTRA
+	// iterate all parent nodes and update size.
+	// in addition iterate all expanded parent nodes and update expanded size.
+	tree_node* parent = it.node->parent;
+	bool parent_expanded = true;
+
+	while (parent) {
+		parent_expanded &= parent->expanded;
+
+		if (parent_expanded) {
+			parent->count_expanded -= it.node->count_expanded;
+		}
+
+		parent->count -= it.node->count;
+		parent->count_expandable -= it.node->count_expandable;
+		parent = parent->parent;
+	}
+
+	// if all parents are expanded update the tree expanded size.
+	if (parent_expanded) {
+		head->count_expanded -= it.node->count_expanded;
+	}
+
+	head->count -= it.node->count;
+	head->count_expandable -= it.node->count_expandable;
+
+	erase_children_(it);
+#else // TREE_HH_EXTRA
 	tree_node* cur = it.node->first_child;
 	tree_node* prev = 0;
 
@@ -643,7 +899,34 @@ void tree<T, tree_node_allocator>::erase_children(const iterator_base& it) {
 	it.node->first_child = 0;
 	it.node->last_child = 0;
 //	std::cout << "exit" << std::endl;
+#endif // TREE_HH_EXTRA
 }
+
+#ifdef TREE_HH_EXTRA
+template<class T, class tree_node_allocator>
+void tree<T, tree_node_allocator>::erase_children_(const iterator_base& it) {
+//	std::cout << "erase_children " << it.node << std::endl;
+	if (it.node == 0) {
+		return;
+	}
+
+	tree_node* cur = it.node->first_child;
+	tree_node* prev = 0;
+
+	while (cur) {
+		prev = cur;
+		cur = cur->next_sibling;
+		erase_children_(pre_order_iterator(prev));
+//		kp::destructor(&prev->data);
+		alloc_.destroy(prev);
+		alloc_.deallocate(prev, 1);
+	}
+
+	it.node->first_child = 0;
+	it.node->last_child = 0;
+//	std::cout << "exit" << std::endl;
+}
+#endif // TREE_HH_EXTRA
 
 template<class T, class tree_node_allocator>
 void tree<T, tree_node_allocator>::erase_right_siblings(const iterator_base& it) {
@@ -703,7 +986,11 @@ iter tree<T, tree_node_allocator>::erase(iter it) {
 	iter ret = it;
 	ret.skip_children();
 	++ret;
+#ifdef TREE_HH_EXTRA
+	erase_children_(it);
+#else // TREE_HH_EXTRA
 	erase_children(it);
+#endif // TREE_HH_EXTRA
 
 	if (cur->prev_sibling == 0) {
 		cur->parent->first_child = cur->next_sibling;
@@ -716,6 +1003,28 @@ iter tree<T, tree_node_allocator>::erase(iter it) {
 	} else {
 		cur->next_sibling->prev_sibling = cur->prev_sibling;
 	}
+
+#ifdef TREE_HH_EXTRA
+	tree_node* parent = it.node->parent;
+	bool parent_expanded = true;
+
+	while (parent) {
+		parent_expanded &= parent->expanded;
+
+		if (parent_expanded) {
+			--parent->count_expanded -= it.node->count_expanded;
+		}
+
+		--parent->count -= it.node->count;
+		parent = parent->parent;
+	}
+
+	if (parent_expanded) {
+		--head->count_expanded -= it.node->count_expanded;
+	}
+
+	--head->count -= it.node->count;
+#endif // TREE_HH_EXTRA
 
 //	kp::destructor(&cur->data);
 	alloc_.destroy(cur);
@@ -732,6 +1041,32 @@ template<class T, class tree_node_allocator>
 typename tree<T, tree_node_allocator>::pre_order_iterator tree<T, tree_node_allocator>::end() const {
 	return pre_order_iterator(feet);
 }
+
+#ifdef TREE_HH_EXTRA
+template<class T, class tree_node_allocator>
+typename tree<T, tree_node_allocator>::expanded_iterator tree<T, tree_node_allocator>::begin_expanded() const {
+	expanded_iterator it(head->next_sibling);
+	if (!it.node->visible) {
+		++it;
+	}
+	return it;
+}
+
+template<class T, class tree_node_allocator>
+typename tree<T, tree_node_allocator>::expanded_iterator tree<T, tree_node_allocator>::end_expanded() const {
+	return expanded_iterator(feet);
+}
+
+template<class T, class tree_node_allocator>
+typename tree<T, tree_node_allocator>::expandable_iterator tree<T, tree_node_allocator>::begin_expandable() const {
+	return expandable_iterator(head->next_sibling);
+}
+
+template<class T, class tree_node_allocator>
+typename tree<T, tree_node_allocator>::expandable_iterator tree<T, tree_node_allocator>::end_expandable() const {
+	return expandable_iterator(feet);
+}
+#endif // TREE_HH_EXTRA
 
 template<class T, class tree_node_allocator>
 typename tree<T, tree_node_allocator>::breadth_first_queued_iterator tree<T, tree_node_allocator>::begin_breadth_first() const {
@@ -888,6 +1223,38 @@ typename tree<T, tree_node_allocator>::path_t tree<T, tree_node_allocator>::path
 	return path;
 }
 
+#ifdef TREE_HH_EXTRA
+template<class T, class tree_node_allocator>
+typename tree<T, tree_node_allocator>::path_t tree<T, tree_node_allocator>::path_from_iterator(const expanded_iterator& iter) const {
+	path_t path;
+	tree_node* walk = iter.node;
+
+	do {
+		if (path.size() > 0) {
+			walk = walk->parent;
+		}
+
+		size_t num = 0;
+
+		if (!walk) {
+			break;
+		}
+
+		while (walk->prev_sibling != 0 && walk->prev_sibling != head) {
+			if (walk->visible) {
+				++num;
+			}
+			walk = walk->prev_sibling;
+		}
+
+		path.push_back(num);
+	} while (walk->parent != 0);
+
+	std::reverse(path.begin(), path.end());
+	return path;
+}
+#endif // TREE_HH_EXTRA
+
 template<class T, class tree_node_allocator>
 typename tree<T, tree_node_allocator>::iterator tree<T, tree_node_allocator>::iterator_from_path(const path_t& path, const iterator_base& top) const {
 	iterator it = top;
@@ -1017,6 +1384,10 @@ iter tree<T, tree_node_allocator>::append_child(iter position) {
 	tree_node* tmp = alloc_.allocate(1, 0);
 	alloc_.construct(tmp, tree_node_<T>());
 //	kp::constructor(&tmp->data);
+#ifdef TREE_HH_EXTRA
+	tmp->expanded = head->expanded;
+	tmp->visible = head->visible;
+#endif // TREE_HH_EXTRA
 	tmp->first_child = 0;
 	tmp->last_child = 0;
 
@@ -1031,6 +1402,31 @@ iter tree<T, tree_node_allocator>::append_child(iter position) {
 	tmp->prev_sibling = position.node->last_child;
 	position.node->last_child = tmp;
 	tmp->next_sibling = 0;
+
+#ifdef TREE_HH_EXTRA
+	tree_node* parent = tmp->parent;
+	bool parent_expanded = true;
+
+	while (parent) {
+		parent_expanded &= parent->expanded;
+
+		if (parent_expanded) {
+			++parent->count_expanded;
+		}
+
+		++parent->count;
+		++parent->count_expandable;
+		parent = parent->parent;
+	}
+
+	if (parent_expanded) {
+		++head->count_expanded;
+	}
+
+	++head->count;
+	++head->count_expandable;
+#endif // TREE_HH_EXTRA
+
 	return tmp;
 }
 
@@ -1044,6 +1440,10 @@ iter tree<T, tree_node_allocator>::prepend_child(iter position) {
 	tree_node* tmp = alloc_.allocate(1, 0);
 	alloc_.construct(tmp, tree_node_<T>());
 //	kp::constructor(&tmp->data);
+#ifdef TREE_HH_EXTRA
+	tmp->expanded = head->expanded;
+	tmp->visible = head->visible;
+#endif // TREE_HH_EXTRA
 	tmp->first_child = 0;
 	tmp->last_child = 0;
 
@@ -1075,6 +1475,10 @@ iter tree<T, tree_node_allocator>::append_child(iter position, const T& x) {
 	tree_node* tmp = alloc_.allocate(1, 0);
 	alloc_.construct(tmp, x);
 //	kp::constructor(&tmp->data, x);
+#ifdef TREE_HH_EXTRA
+	tmp->expanded = head->expanded;
+	tmp->visible = head->visible;
+#endif // TREE_HH_EXTRA
 	tmp->first_child = 0;
 	tmp->last_child = 0;
 
@@ -1089,6 +1493,31 @@ iter tree<T, tree_node_allocator>::append_child(iter position, const T& x) {
 	tmp->prev_sibling = position.node->last_child;
 	position.node->last_child = tmp;
 	tmp->next_sibling = 0;
+
+#ifdef TREE_HH_EXTRA
+	tree_node* parent = tmp->parent;
+	bool parent_expanded = true;
+
+	while (parent) {
+		parent_expanded &= parent->expanded;
+
+		if (parent_expanded) {
+			++parent->count_expanded;
+		}
+
+		++parent->count;
+		++parent->count_expandable;
+		parent = parent->parent;
+	}
+
+	if (parent_expanded) {
+		++head->count_expanded;
+	}
+
+	++head->count;
+	++head->count_expandable;
+#endif // TREE_HH_EXTRA
+
 	return tmp;
 }
 
@@ -1130,6 +1559,10 @@ iter tree<T, tree_node_allocator>::prepend_child(iter position, const T& x) {
 	tree_node* tmp = alloc_.allocate(1, 0);
 	alloc_.construct(tmp, x);
 //	kp::constructor(&tmp->data, x);
+#ifdef TREE_HH_EXTRA
+	tmp->expanded = head->expanded;
+	tmp->visible = head->visible;
+#endif // TREE_HH_EXTRA
 	tmp->first_child = 0;
 	tmp->last_child = 0;
 
@@ -1260,6 +1693,10 @@ iter tree<T, tree_node_allocator>::insert(iter position, const T& x) {
 	tree_node* tmp = alloc_.allocate(1, 0);
 	alloc_.construct(tmp, x);
 //	kp::constructor(&tmp->data, x);
+#ifdef TREE_HH_EXTRA
+	tmp->expanded = head->expanded;
+	tmp->visible = head->visible;
+#endif // TREE_HH_EXTRA
 	tmp->first_child = 0;
 	tmp->last_child = 0;
 
@@ -1275,6 +1712,30 @@ iter tree<T, tree_node_allocator>::insert(iter position, const T& x) {
 	} else {
 		tmp->prev_sibling->next_sibling = tmp;
 	}
+
+#ifdef TREE_HH_EXTRA
+	tree_node* parent = tmp->parent;
+	bool parent_expanded = true;
+
+	while (parent) {
+		parent_expanded &= parent->expanded;
+
+		if (parent_expanded) {
+			++parent->count_expanded;
+		}
+
+		++parent->count;
+		++parent->count_expandable;
+		parent = parent->parent;
+	}
+
+	if (parent_expanded) {
+		++head->count_expanded;
+	}
+
+	++head->count;
+	++head->count_expandable;
+#endif // TREE_HH_EXTRA
 
 	return tmp;
 }
@@ -1314,6 +1775,10 @@ typename tree<T, tree_node_allocator>::sibling_iterator tree<T, tree_node_alloca
 	tree_node* tmp = alloc_.allocate(1, 0);
 	alloc_.construct(tmp, x);
 //	kp::constructor(&tmp->data, x);
+#ifdef TREE_HH_EXTRA
+	tmp->expanded = head->expanded;
+	tmp->visible = head->visible;
+#endif // TREE_HH_EXTRA
 	tmp->first_child = 0;
 	tmp->last_child = 0;
 
@@ -1337,6 +1802,30 @@ typename tree<T, tree_node_allocator>::sibling_iterator tree<T, tree_node_alloca
 		tmp->prev_sibling->next_sibling = tmp;
 	}
 
+#ifdef TREE_HH_EXTRA
+	tree_node* parent = tmp->parent;
+	bool parent_expanded = true;
+
+	while (parent) {
+		parent_expanded &= parent->expanded;
+
+		if (parent_expanded) {
+			++parent->count_expanded;
+		}
+
+		++parent->count;
+		++parent->count_expandable;
+		parent = parent->parent;
+	}
+
+	if (parent_expanded) {
+		++head->count_expanded;
+	}
+
+	++head->count;
+	++head->count_expandable;
+#endif // TREE_HH_EXTRA
+
 	return tmp;
 }
 
@@ -1346,6 +1835,10 @@ iter tree<T, tree_node_allocator>::insert_after(iter position, const T& x) {
 	tree_node* tmp = alloc_.allocate(1, 0);
 	alloc_.construct(tmp, x);
 //	kp::constructor(&tmp->data, x);
+#ifdef TREE_HH_EXTRA
+	tmp->expanded = head->expanded;
+	tmp->visible = head->visible;
+#endif // TREE_HH_EXTRA
 	tmp->first_child = 0;
 	tmp->last_child = 0;
 
@@ -1439,11 +1932,19 @@ iter tree<T, tree_node_allocator>::replace(iter position, const iterator_base& f
 
 	// replace the node at position with head of the replacement tree at from
 //	std::cout << "warning!" << position.node << std::endl;
+#ifdef TREE_HH_EXTRA
+	erase_children_(position);
+#else // TREE_HH_EXTRA
 	erase_children(position);
+#endif // TREE_HH_EXTRA
 //	std::cout << "no warning!" << std::endl;
 	tree_node* tmp = alloc_.allocate(1, 0);
 	alloc_.construct(tmp, (*from));
 //	kp::constructor(&tmp->data, (*from));
+#ifdef TREE_HH_EXTRA
+	tmp->expanded = head->expanded;
+	tmp->visible = head->visible;
+#endif // TREE_HH_EXTRA
 	tmp->first_child = 0;
 	tmp->last_child = 0;
 
@@ -2140,6 +2641,64 @@ void tree<T, tree_node_allocator>::sort(sibling_iterator from, sibling_iterator 
 	}
 }
 
+#ifdef TREE_HH_EXTRA
+template<class T, class tree_node_allocator>
+size_t tree<T, tree_node_allocator>::filter(bool value) {
+	auto comp = [&](const T&/*node*/) {
+		return value;
+	};
+	return filter(comp);
+}
+
+template<class T, class tree_node_allocator>
+template<class StrictWeakFiltering>
+size_t tree<T, tree_node_allocator>::filter(StrictWeakFiltering comp) {
+	head->count_expandable = 0;
+	head->count_expanded = 0;
+	// iterate over all the nodes and reset expanded size and expanded flag.
+	iterator it = begin();
+
+	while (it != end()) {
+		if (it.node->first_child) {
+			it.node->expanded = true;
+			it.node->count_expandable = 0;
+			it.node->count_expanded = 0;
+		}
+
+		bool visible = comp(*it);
+//		bool prev_visible = it.node->visible;
+		it.node->visible = visible;
+		if (visible) {
+			++head->count_expandable;
+			++head->count_expanded;
+
+			auto parent = it.node->parent;
+			while (parent) {
+				if (!parent->visible) {
+					parent->visible = true;
+					++head->count_expandable;
+					++head->count_expanded;
+					auto parent1 = parent->parent;
+					while (parent1) {
+						++parent1->count_expandable;
+						++parent1->count_expanded;
+						parent1 = parent1->parent;
+					}
+				}
+				++parent->count_expandable;
+				++parent->count_expanded;
+				parent = parent->parent;
+			}
+		}
+
+
+		++it;
+	}
+
+	return head->count_expanded;
+}
+#endif // TREE_HH_EXTRA
+
 template<class T, class tree_node_allocator>
 template<typename iter>
 bool tree<T, tree_node_allocator>::equal(const iter& one_, const iter& two, const iter& three_) const {
@@ -2215,6 +2774,9 @@ void tree<T, tree_node_allocator>::subtree(tree& tmp, sibling_iterator from, sib
 
 template<class T, class tree_node_allocator>
 size_t tree<T, tree_node_allocator>::size() const {
+#ifdef TREE_HH_EXTRA
+	return head->count;
+#else // TREE_HH_EXTRA
 	size_t i = 0;
 	pre_order_iterator it = begin(), eit = end();
 
@@ -2224,10 +2786,14 @@ size_t tree<T, tree_node_allocator>::size() const {
 	}
 
 	return i;
+#endif // TREE_HH_EXTRA
 }
 
 template<class T, class tree_node_allocator>
 size_t tree<T, tree_node_allocator>::size(const iterator_base& top) const {
+#ifdef TREE_HH_EXTRA
+	return top.node->count;
+#else // TREE_HH_EXTRA
 	size_t i = 0;
 	pre_order_iterator it = top, eit = top;
 	eit.skip_children();
@@ -2239,7 +2805,40 @@ size_t tree<T, tree_node_allocator>::size(const iterator_base& top) const {
 	}
 
 	return i;
+#endif // TREE_HH_EXTRA
 }
+
+#ifdef TREE_HH_EXTRA
+template<class T, class tree_node_allocator>
+size_t tree<T, tree_node_allocator>::count() const {
+	return head->count;
+}
+
+template<class T, class tree_node_allocator>
+size_t tree<T, tree_node_allocator>::count(const iterator_base& top) const {
+	return top.node->count;
+}
+
+template<class T, class tree_node_allocator>
+size_t tree<T, tree_node_allocator>::count_expanded() const {
+	return head->count_expanded;
+}
+
+template<class T, class tree_node_allocator>
+size_t tree<T, tree_node_allocator>::count_expanded(const iterator_base& top) const {
+	return top.node->count_expanded;
+}
+
+template<class T, class tree_node_allocator>
+size_t tree<T, tree_node_allocator>::count_expandable() const {
+	return head->count_expandable;
+}
+
+template<class T, class tree_node_allocator>
+size_t tree<T, tree_node_allocator>::count_expandable(const iterator_base& top) const {
+	return top.node ? top.node->count_expandable : 0;
+}
+#endif // TREE_HH_EXTRA
 
 template<class T, class tree_node_allocator>
 bool tree<T, tree_node_allocator>::empty() const {
@@ -2371,6 +2970,18 @@ size_t tree<T, tree_node_allocator>::number_of_siblings(const iterator_base& it)
 
 	return ret;
 }
+
+#ifdef TREE_HH_EXTRA
+template<class T, class tree_node_allocator>
+void tree<T, tree_node_allocator>::swap(tree<T, tree_node_allocator>& _Other) {
+	if (this != &_Other) {
+		std::swap(head, _Other.head);
+		std::swap(feet, _Other.feet);
+		std::swap(selection, _Other.selection);
+		std::swap(multiple_selection, _Other.multiple_selection);
+	}
+}
+#endif // TREE_HH_EXTRA
 
 template<class T, class tree_node_allocator>
 void tree<T, tree_node_allocator>::swap(sibling_iterator it) {
@@ -2544,6 +3155,30 @@ size_t tree<T, tree_node_allocator>::index(sibling_iterator it) const {
 	return ind;
 }
 
+#ifdef TREE_HH_EXTRA
+template<class T, class tree_node_allocator>
+size_t tree<T, tree_node_allocator>::index(pre_order_iterator it) const {
+	size_t ind = 0;
+
+	while (--it != head) {
+		++ind;
+	}
+
+	return ind;
+}
+
+template<class T, class tree_node_allocator>
+size_t tree<T, tree_node_allocator>::index(expanded_iterator it) const {
+	size_t ind = 0;
+
+	while (--it != head) {
+		++ind;
+	}
+
+	return ind;
+}
+#endif // TREE_HH_EXTRA
+
 template<class T, class tree_node_allocator>
 typename tree<T, tree_node_allocator>::sibling_iterator tree<T, tree_node_allocator>::sibling(const iterator_base& it, size_t num) const {
 	tree_node* tmp;
@@ -2643,6 +3278,28 @@ template<class T, class tree_node_allocator>
 bool tree<T, tree_node_allocator>::pre_order_iterator::operator==(const pre_order_iterator& other) const {
 	return (other.node == this->node);
 }
+
+#ifdef TREE_HH_EXTRA
+template<class T, class tree_node_allocator>
+bool tree<T, tree_node_allocator>::expanded_iterator::operator!=(const iterator_base& other) const {
+	return (other.node != this->node);
+}
+
+template<class T, class tree_node_allocator>
+bool tree<T, tree_node_allocator>::expanded_iterator::operator==(const iterator_base& other) const {
+	return (other.node == this->node);
+}
+
+template<class T, class tree_node_allocator>
+bool tree<T, tree_node_allocator>::expandable_iterator::operator!=(const expandable_iterator& other) const {
+	return (other.node != this->node);
+}
+
+template<class T, class tree_node_allocator>
+bool tree<T, tree_node_allocator>::expandable_iterator::operator==(const expandable_iterator& other) const {
+	return (other.node == this->node);
+}
+#endif // TREE_HH_EXTRA
 
 template<class T, class tree_node_allocator>
 bool tree<T, tree_node_allocator>::sibling_iterator::operator!=(const sibling_iterator& other) const {
@@ -2745,6 +3402,7 @@ template<class T, class tree_node_allocator>
 typename tree<T, tree_node_allocator>::pre_order_iterator& tree<T, tree_node_allocator>::pre_order_iterator::operator++() {
 	assert(this->node != 0);
 
+//	if((!this->skip_current_children_ || this->node->expanded) && this->node->first_child) {
 	if (!this->skip_current_children_ && this->node->first_child != 0) {
 		this->node = this->node->first_child;
 	} else {
@@ -2771,6 +3429,7 @@ typename tree<T, tree_node_allocator>::pre_order_iterator& tree<T, tree_node_all
 	if (this->node->prev_sibling) {
 		this->node = this->node->prev_sibling;
 
+//		while (this->node->last_child && this->node->expanded) { //what if parent of parent is hidden?
 		while (this->node->last_child) {
 			this->node = this->node->last_child;
 		}
@@ -2823,6 +3482,232 @@ typename tree<T, tree_node_allocator>::pre_order_iterator& tree<T, tree_node_all
 
 	return (*this);
 }
+
+
+
+#ifdef TREE_HH_EXTRA
+// Expanded iterator
+
+template<class T, class tree_node_allocator>
+tree<T, tree_node_allocator>::expanded_iterator::expanded_iterator()
+	: iterator_base(0) { }
+
+template<class T, class tree_node_allocator>
+tree<T, tree_node_allocator>::expanded_iterator::expanded_iterator(tree_node* tn)
+	: iterator_base(tn) { }
+
+template<class T, class tree_node_allocator>
+tree<T, tree_node_allocator>::expanded_iterator::expanded_iterator(const iterator_base& other)
+	: iterator_base(other.node) { }
+
+template<class T, class tree_node_allocator>
+tree<T, tree_node_allocator>::expanded_iterator::expanded_iterator(const sibling_iterator& other)
+	: iterator_base(other.node) {
+	if (this->node == 0) {
+		this->node = (other.range_last()) ? other.range_last() : other.parent_;
+		this->skip_children();
+		++(*this);
+	}
+}
+
+template<class T, class tree_node_allocator>
+typename tree<T, tree_node_allocator>::expanded_iterator& tree<T, tree_node_allocator>::expanded_iterator::operator++() {
+//		assert(this->node);
+
+	while (this->node != 0) {
+		if (!this->skip_current_children_ && this->node->first_child && this->node->expanded) {
+			this->node = this->node->first_child;
+		} else {
+			this->skip_current_children_ = false;
+
+			while (this->node->next_sibling == 0) {
+				this->node = this->node->parent;
+
+				if (this->node == 0) {
+					return *this;
+				}
+			}
+
+			this->node = this->node->next_sibling;
+		}
+
+		if (this->node->visible) {
+			break;
+		}
+	}
+
+	return *this;
+}
+
+template<class T, class tree_node_allocator>
+typename tree<T, tree_node_allocator>::expanded_iterator& tree<T, tree_node_allocator>::expanded_iterator::operator--() {
+	assert(this->node);
+
+	if (this->node->prev_sibling) {
+		this->node = this->node->prev_sibling;
+
+//		while (this->node->last_child && this->node->expanded) { //what if parent of parent is hidden?
+		while (this->node->last_child) {
+			this->node = this->node->last_child;
+		}
+	} else {
+		this->node = this->node->parent;
+
+		if (this->node == 0) {
+			return *this;
+		}
+	}
+
+	return *this;
+}
+
+template<class T, class tree_node_allocator>
+typename tree<T, tree_node_allocator>::expanded_iterator tree<T, tree_node_allocator>::expanded_iterator::operator++(int) {
+	expanded_iterator copy = *this;
+	++(*this);
+	return copy;
+}
+
+template<class T, class tree_node_allocator>
+typename tree<T, tree_node_allocator>::expanded_iterator& tree<T, tree_node_allocator>::expanded_iterator::next_skip_children() {
+	(*this).skip_children();
+	(*this)++;
+	return *this;
+}
+
+template<class T, class tree_node_allocator>
+typename tree<T, tree_node_allocator>::expanded_iterator tree<T, tree_node_allocator>::expanded_iterator::operator--(int) {
+	expanded_iterator copy = *this;
+	--(*this);
+	return copy;
+}
+
+template<class T, class tree_node_allocator>
+typename tree<T, tree_node_allocator>::expanded_iterator& tree<T, tree_node_allocator>::expanded_iterator::operator+=(size_t num) {
+	while (num--) {
+		++(*this);
+	}
+
+	return (*this);
+}
+
+template<class T, class tree_node_allocator>
+typename tree<T, tree_node_allocator>::expanded_iterator& tree<T, tree_node_allocator>::expanded_iterator::operator-=(size_t num) {
+	while (num--) {
+		--(*this);
+	}
+
+	return (*this);
+}
+#endif // TREE_HH_EXTRA
+
+#ifdef TREE_HH_EXTRA
+template<class T, class tree_node_allocator>
+tree<T, tree_node_allocator>::expandable_iterator::expandable_iterator()
+	: iterator_base(0) { }
+
+template<class T, class tree_node_allocator>
+tree<T, tree_node_allocator>::expandable_iterator::expandable_iterator(tree_node* tn)
+	: iterator_base(tn) { }
+
+template<class T, class tree_node_allocator>
+tree<T, tree_node_allocator>::expandable_iterator::expandable_iterator(const iterator_base& other)
+	: iterator_base(other.node) { }
+
+template<class T, class tree_node_allocator>
+tree<T, tree_node_allocator>::expandable_iterator::expandable_iterator(const sibling_iterator& other)
+	: iterator_base(other.node) {
+	if (this->node == 0) {
+		this->node = (other.range_last()) ? other.range_last() : other.parent_;
+		this->skip_children();
+		++(*this);
+	}
+}
+
+template<class T, class tree_node_allocator>
+typename tree<T, tree_node_allocator>::expandable_iterator& tree<T, tree_node_allocator>::expandable_iterator::operator++() {
+	assert(this->node);
+
+	if (!this->skip_current_children_ && this->node->first_child/* && this->node->expanded*/) {
+		this->node = this->node->first_child;
+	} else {
+		this->skip_current_children_ = false;
+
+		while (this->node->next_sibling == 0) {
+			this->node = this->node->parent;
+
+			if (this->node == 0) {
+				return *this;
+			}
+		}
+
+		this->node = this->node->next_sibling;
+	}
+
+	return *this;
+}
+
+template<class T, class tree_node_allocator>
+typename tree<T, tree_node_allocator>::expandable_iterator& tree<T, tree_node_allocator>::expandable_iterator::operator--() {
+	assert(this->node);
+
+	if (this->node->prev_sibling) {
+		this->node = this->node->prev_sibling;
+
+//		while (this->node->last_child && this->node->expanded) { //what if parent of parent is hidden?
+		while (this->node->last_child) {
+			this->node = this->node->last_child;
+		}
+	} else {
+		this->node = this->node->parent;
+
+		if (this->node == 0) {
+			return *this;
+		}
+	}
+
+	return *this;
+}
+
+template<class T, class tree_node_allocator>
+typename tree<T, tree_node_allocator>::expandable_iterator tree<T, tree_node_allocator>::expandable_iterator::operator++(int) {
+	expandable_iterator copy = *this;
+	++(*this);
+	return copy;
+}
+
+template<class T, class tree_node_allocator>
+typename tree<T, tree_node_allocator>::expandable_iterator& tree<T, tree_node_allocator>::expandable_iterator::next_skip_children() {
+	(*this).skip_children();
+	(*this)++;
+	return *this;
+}
+
+template<class T, class tree_node_allocator>
+typename tree<T, tree_node_allocator>::expandable_iterator tree<T, tree_node_allocator>::expandable_iterator::operator--(int) {
+	expandable_iterator copy = *this;
+	--(*this);
+	return copy;
+}
+
+template<class T, class tree_node_allocator>
+typename tree<T, tree_node_allocator>::expandable_iterator& tree<T, tree_node_allocator>::expandable_iterator::operator+=(size_t num) {
+	while (num--) {
+		++(*this);
+	}
+
+	return (*this);
+}
+
+template<class T, class tree_node_allocator>
+typename tree<T, tree_node_allocator>::expandable_iterator& tree<T, tree_node_allocator>::expandable_iterator::operator-=(size_t num) {
+	while (num--) {
+		--(*this);
+	}
+
+	return (*this);
+}
+#endif // TREE_HH_EXTRA
 
 
 
@@ -3421,6 +4306,250 @@ typename tree<T, tree_node_allocator>::leaf_iterator& tree<T, tree_node_allocato
 
 	return (*this);
 }
+
+#ifdef TREE_HH_EXTRA
+template<class T, class tree_node_allocator /*= std::allocator<tree_node_<T> > */>
+size_t tree<T, tree_node_allocator>::collapse() {
+	// tree expanded size is reset to be incemented by the head siblings.
+	head->count_expanded = 0;
+	// iterate over all the nodes and reset expanded size and expanded flag.
+	iterator it = begin();
+
+	while (it != end()) {
+		if (it.node->first_child) {
+			it.node->count_expanded = 0;
+			it.node->expanded = false;
+		}
+
+		// if the node has no parent increment the expended size of the tree.
+		if (!it.node->parent) {
+			++head->count_expanded;
+		}
+
+		++it;
+	}
+
+	return head->count_expanded;
+}
+
+template<class T, class tree_node_allocator /*= std::allocator<tree_node_<T> > */>
+size_t tree<T, tree_node_allocator>::collapse(const iterator_base& it) {
+	// check if the node has children.
+	if (!it.node->first_child) {
+		//return;
+	}
+
+	// iterate all expanded parents and update expanded size.
+	// the collapsed parents are not affected.
+	tree_node* parent = it.node->parent;
+
+	while (parent && parent->expanded) {
+		parent->count_expanded -= it.node->count_expanded;
+		parent = parent->parent;
+	}
+
+	// if the parent iteration has reached the head or any of its siblings
+	// update the expanded size of the tree.
+	if (!parent) {
+		head->count_expanded -= it.node->count_expanded;
+	}
+
+	// update node expanded size and expanded flag.
+	it.node->count_expanded = 0;
+	it.node->expanded = false;
+
+	return head->count_expanded;
+}
+
+template<class T, class tree_node_allocator /*= std::allocator<tree_node_<T> > */>
+size_t tree<T, tree_node_allocator>::expand() {
+	// iterate over all the nodes and reset expanded size and expanded flag.
+	iterator it = begin();
+
+	while (it != end()) {
+		if (it.node.first_child) {
+			it.node->count_expanded = it->node.count_expandable;
+			it.node->expanded = true;
+		}
+
+		++it;
+	}
+
+	// update expanded size of tree.
+	head->count_expanded = head->count_expandable;
+
+	return head->count_expanded;
+}
+
+template<class T, class tree_node_allocator /*= std::allocator<tree_node_<T> > */>
+size_t tree<T, tree_node_allocator>::expand(const iterator_base& it) {
+	// check if the node has children.
+	if (!it.node->first_child) {
+		//return;
+	}
+
+	// update node expanded size and expanded flag.
+	// sum the node's direct children count and their expanded size.
+	tree_node* child = it.node->first_child;
+
+	while (child) {
+		it.node->count_expanded += child->count_expanded + 1;
+		child = child->next_sibling;
+	}
+
+	it.node->expanded = true;
+
+	// iterate all expanded parents and update expanded size.
+	// the collapsed parents are not affected.
+	tree_node* parent = it.node->parent;
+
+	while (parent && parent->expanded) {
+		parent->count_expanded += it.node->count_expanded;
+		parent = parent->parent;
+	}
+
+	// if the parent iteration has reached the head or any of its siblings
+	// update the expanded size of the tree.
+	if (!parent) {
+		head->count_expanded += it.node->count_expanded;
+	}
+
+	return head->count_expanded;
+
+}
+
+template<class T, class tree_node_allocator /*= std::allocator<tree_node_<T> > */>
+bool tree<T, tree_node_allocator>::is_expanded(const iterator_base& it) {
+	return it.node ? it.node->expanded : false;
+}
+
+template<class T, class tree_node_allocator /*= std::allocator<tree_node_<T> > */>
+void tree<T, tree_node_allocator>::set_expand_new(bool expand) {
+	head->expanded = expand;
+}
+
+template<class T, class tree_node_allocator /*= std::allocator<tree_node_<T> > */>
+void tree<T, tree_node_allocator>::select() {
+	if (multiple_selection) {
+		selection.clear();
+		selection.insert({ 0, head->count_expanded });
+	}
+}
+
+template<class T, class tree_node_allocator /*= std::allocator<tree_node_<T> > */>
+void tree<T, tree_node_allocator>::toggle(size_t index, size_t origin, uint32_t mode) {
+	if (!multiple_selection || !(mode & MK_CONTROL)) {
+		selection.clear();
+		selection.insert({ index, index });
+	} else if (mode & MK_CONTROL) {
+		// Toggle selected state
+		bool found = false;
+
+		for (auto& iter = selection.begin(); iter != selection.cend(); ++iter) {
+			if ((iter->begin == index) && (iter->end == index)) {
+				// if single item selection range, remove selection range
+				selection.erase(iter);
+				found = true; break;
+			} else if (iter->begin == index) {
+				// if item is at the beginning of selection range, amend selection range
+				++iter->begin;
+				found = true; break;
+			} else if (iter->end == index) {
+				// if item is at the end of selection range, amend selection range
+				--iter->end;
+				found = true; break;
+			} else if ((iter->begin <= index) && (iter->end >= index)) {
+				// if item is in the middle of selection range, split selection range
+				size_t end = iter->end;
+				iter->end = index - 1;
+				selection.insert({ index + 1, end });
+				found = true; break;
+			} else if ((iter->begin - 1) == index) {
+				// if item is before the beginning of selection range, amend selection range
+				--iter->begin;
+				found = true; break;
+			} else if ((iter->end + 1) == index) {
+				// if item is after the end of selection range, amend selection range
+				++iter->end;
+				found = true; break;
+			}
+		}
+
+		// if item not found in selection range then add selection range
+		if (found == false) {
+			selection.push_back({ index, index });
+		}
+	}
+
+	if ((mode & MK_SHIFT) && (multiple_selection)) {
+		size_t begin = (std::min)(origin, index);
+		size_t end = (std::max)(origin, index);
+
+		bool found = false;
+
+		for (auto& iter = selection.begin(); iter != selection.cend(); ++iter) {
+			if (iter->begin == begin) {
+				// if item is before the beginning of selection range, amend selection range
+				iter->end = end;
+				found = true; break;
+			} else if (iter->end == end) {
+				// if item is after the end of selection range, amend selection range
+				iter->begin = begin;
+				found = true; break;
+			}
+		}
+
+		// if item not found in selection then add selection
+		if (found == false) {
+			selection.push_back({ begin, end });
+		}
+	}
+
+	// Sanitize selection range
+	if ((multiple_selection) && (selection.size() > 1)) {
+		for (auto& iter = selection.begin(); iter != selection.cend(); ++iter) {
+			// if item in next selection range is a continuation of selection range, amend selection range and remove next selection range
+			auto next = iter;
+			++next;
+
+			if ((next != selection.cend()) && ((iter->end + 1) == next->begin)) {
+				iter->end = next->end;
+				next = selection.erase(next);
+			}
+
+			// if item in next selection range is included in selection range, remove next selection range
+			if ((next != selection.cend()) && (iter->begin <= next->begin) && (iter->end >= next->end)) {
+				next = selection.erase(next);
+			}
+		}
+	}
+}
+
+template<class T, class tree_node_allocator /*= std::allocator<tree_node_<T> > */>
+void tree<T, tree_node_allocator>::unselect() {
+	selection.clear();
+}
+
+template<class T, class tree_node_allocator /*= std::allocator<tree_node_<T> > */>
+void tree<T, tree_node_allocator>::set_multiple_selection(bool multiple) {
+	multiple_selection = multiple;
+}
+
+template<class T, class tree_node_allocator /*= std::allocator<tree_node_<T> > */>
+bool tree<T, tree_node_allocator>::is_selected(size_t index) {
+	for (auto& iter = selection.cbegin(); iter != selection.cend(); ++iter) {
+		if (iter->begin > index) {
+			return false;
+		}
+
+		if ((iter->begin <= index) && (iter->end >= index)) {
+			return true;
+		}
+	}
+
+	return false;
+}
+#endif // TREE_HH_EXTRA
 
 #endif
 
